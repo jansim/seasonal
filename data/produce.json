@@ -1,0 +1,36 @@
+{
+  "categories": {
+    "fruit": { "name": "Fruit" },
+    "vegetables": { "name": "Vegetables" }
+  },
+  "items": {
+    "rhubarb":          { "name": "Rhubarb",          "category": "fruit",      "color": "#D8567A" },
+    "strawberries":     { "name": "Strawberries",     "category": "fruit",      "color": "#D93A3A" },
+    "cherries":         { "name": "Cherries",         "category": "fruit",      "color": "#9C1F3F" },
+    "raspberries":      { "name": "Raspberries",      "category": "fruit",      "color": "#C9366B" },
+    "blueberries":      { "name": "Blueberries",      "category": "fruit",      "color": "#3D57A6" },
+    "apricots":         { "name": "Apricots",         "category": "fruit",      "color": "#EE9A3C" },
+    "plums":            { "name": "Plums",            "category": "fruit",      "color": "#6C3E8E" },
+    "pears":            { "name": "Pears",            "category": "fruit",      "color": "#B3A92C" },
+    "apples":           { "name": "Apples",           "category": "fruit",      "color": "#7EAA2F" },
+    "grapes":           { "name": "Grapes",           "category": "fruit",      "color": "#8E6BB8" },
+    "mangoes":          { "name": "Mangoes",          "category": "fruit",      "color": "#F2B134" },
+    "oranges":          { "name": "Oranges",          "category": "fruit",      "color": "#F08A24" },
+    "wild-garlic":      { "name": "Wild garlic",      "category": "vegetables", "color": "#4F9D5A" },
+    "asparagus":        { "name": "Asparagus",        "category": "vegetables", "color": "#9AAE4B" },
+    "radishes":         { "name": "Radishes",         "category": "vegetables", "color": "#E4677F" },
+    "spinach":          { "name": "Spinach",          "category": "vegetables", "color": "#2F7044" },
+    "peas":             { "name": "Peas",             "category": "vegetables", "color": "#86C04F" },
+    "tomatoes":         { "name": "Tomatoes",         "category": "vegetables", "color": "#E24A2B" },
+    "zucchini":         { "name": "Zucchini",         "category": "vegetables", "color": "#3D7F3B" },
+    "green-beans":      { "name": "Green beans",      "category": "vegetables", "color": "#5E9E4A" },
+    "sweetcorn":        { "name": "Sweetcorn",        "category": "vegetables", "color": "#E3B23C" },
+    "cauliflower":      { "name": "Cauliflower",      "category": "vegetables", "color": "#B8A98A" },
+    "carrots":          { "name": "Carrots",          "category": "vegetables", "color": "#EE7B26" },
+    "pumpkins":         { "name": "Pumpkins",         "category": "vegetables", "color": "#D9631A" },
+    "beetroot":         { "name": "Beetroot",         "category": "vegetables", "color": "#8B1D4E" },
+    "leeks":            { "name": "Leeks",            "category": "vegetables", "color": "#93B870" },
+    "brussels-sprouts": { "name": "Brussels sprouts", "category": "vegetables", "color": "#56822F" },
+    "kale":             { "name": "Kale",             "category": "vegetables", "color": "#2D5A55" }
+  }
+}
