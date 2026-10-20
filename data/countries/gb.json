@@ -1,0 +1,31 @@
+{
+  "code": "gb",
+  "name": "United Kingdom",
+  "hemisphere": "north",
+  "note": "Typical UK-grown season. Exact timing varies by region and year.",
+  "produce": {
+    "rhubarb":          { "fresh": [2, 3, 4, 5, 6] },
+    "strawberries":     { "fresh": [6, 7, 8] },
+    "cherries":         { "fresh": [7, 8] },
+    "raspberries":      { "fresh": [7, 8, 9] },
+    "blueberries":      { "fresh": [7, 8, 9] },
+    "plums":            { "fresh": [8, 9] },
+    "pears":            { "fresh": [9, 10, 11], "stored": [12, 1, 2] },
+    "apples":           { "fresh": [8, 9, 10, 11], "stored": [12, 1, 2, 3, 4] },
+    "wild-garlic":      { "fresh": [3, 4, 5] },
+    "asparagus":        { "fresh": [4, 5, 6] },
+    "radishes":         { "fresh": [5, 6, 7, 8, 9] },
+    "spinach":          { "fresh": [4, 5, 6, 9, 10] },
+    "peas":             { "fresh": [6, 7, 8] },
+    "tomatoes":         { "fresh": [7, 8, 9] },
+    "zucchini":         { "name": "Courgettes", "fresh": [6, 7, 8, 9] },
+    "green-beans":      { "fresh": [7, 8, 9] },
+    "sweetcorn":        { "fresh": [8, 9] },
+    "carrots":          { "fresh": [6, 7, 8, 9, 10, 11], "stored": [12, 1, 2, 3] },
+    "pumpkins":         { "name": "Squash & pumpkins", "fresh": [9, 10, 11], "stored": [12, 1] },
+    "beetroot":         { "fresh": [6, 7, 8, 9, 10], "stored": [11, 12, 1, 2] },
+    "leeks":            { "fresh": [9, 10, 11, 12, 1, 2, 3] },
+    "brussels-sprouts": { "fresh": [10, 11, 12, 1, 2] },
+    "kale":             { "fresh": [10, 11, 12, 1, 2] }
+  }
+}

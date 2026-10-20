@@ -1,0 +1,5 @@
+[
+  { "code": "de", "name": "Germany",        "file": "countries/de.json" },
+  { "code": "gb", "name": "United Kingdom", "file": "countries/gb.json" },
+  { "code": "au", "name": "Australia",      "file": "countries/au.json" }
+]

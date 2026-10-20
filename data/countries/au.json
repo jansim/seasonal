@@ -1,0 +1,32 @@
+{
+  "code": "au",
+  "name": "Australia",
+  "hemisphere": "south",
+  "note": "Broad national averages for south-eastern Australia. Tropical regions differ considerably.",
+  "produce": {
+    "strawberries":     { "fresh": [10, 11, 12, 1, 2, 3] },
+    "cherries":         { "fresh": [11, 12, 1] },
+    "raspberries":      { "fresh": [12, 1, 2, 3] },
+    "blueberries":      { "fresh": [11, 12, 1, 2, 3] },
+    "apricots":         { "fresh": [12, 1] },
+    "plums":            { "fresh": [12, 1, 2, 3] },
+    "pears":            { "fresh": [2, 3, 4, 5, 6], "stored": [7, 8, 9] },
+    "apples":           { "fresh": [2, 3, 4, 5, 6], "stored": [7, 8, 9, 10, 11] },
+    "grapes":           { "fresh": [1, 2, 3, 4] },
+    "mangoes":          { "fresh": [10, 11, 12, 1, 2, 3] },
+    "oranges":          { "fresh": [6, 7, 8, 9, 10] },
+    "asparagus":        { "fresh": [9, 10, 11, 12] },
+    "peas":             { "fresh": [8, 9, 10, 11] },
+    "tomatoes":         { "fresh": [12, 1, 2, 3, 4] },
+    "zucchini":         { "fresh": [11, 12, 1, 2, 3, 4] },
+    "green-beans":      { "fresh": [11, 12, 1, 2, 3, 4] },
+    "sweetcorn":        { "fresh": [12, 1, 2, 3] },
+    "cauliflower":      { "fresh": [5, 6, 7, 8, 9] },
+    "carrots":          { "fresh": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] },
+    "pumpkins":         { "fresh": [3, 4, 5, 6, 7], "stored": [8, 9] },
+    "beetroot":         { "fresh": [5, 6, 7, 8, 9, 10] },
+    "leeks":            { "fresh": [5, 6, 7, 8, 9] },
+    "brussels-sprouts": { "fresh": [5, 6, 7, 8] },
+    "kale":             { "fresh": [5, 6, 7, 8, 9] }
+  }
+}
