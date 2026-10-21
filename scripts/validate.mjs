@@ -44,7 +44,9 @@ for (const [id, plate] of Object.entries(art ?? {})) {
   if (catalogue && !catalogue.items[id]) errors.push(`${where} is not in produce.json`);
   if (!/^POM\d{8}$/.test(plate.id)) errors.push(`${where} needs a NAL identifier like POM00001234`);
   if (!plate.artist) errors.push(`${where} needs an artist`);
-  if (!plate.file || !existsSync(join(repo, plate.file))) errors.push(`${where}: image "${plate.file}" is missing`);
+  for (const key of ['file', 'thumb']) {
+    if (!plate[key] || !existsSync(join(repo, plate[key]))) errors.push(`${where}: image "${plate[key]}" is missing`);
+  }
 }
 
 const codes = new Set();

@@ -1,16 +1,17 @@
-// View 07 · Half-year arch — one concentric ring per item, Jan on the left, Dec on the right.
+// Half-year arch: one concentric ring per item, Jan on the left, Dec on the right.
 import { MONTHS, MONTHS_LONG, segments } from './data.js';
 import { esc } from './util.js';
 
 const INNER_R = 250;
 const STEP = 16;
 const GROUP_GAP = 18;
-const WIDTH = { track: 10, fresh: 12, stored: 9 };
-const INK = '#26221D';
-const MUTED = '#655D52';
-const MONO = "'DM Mono', ui-monospace, monospace";
-const SANS = 'Figtree, system-ui, sans-serif';
-const SERIF = "'Instrument Serif', Georgia, serif";
+const WIDTH = { track: 10, fresh: 12, shoulder: 12, extended: 12, covered: 9, heated: 9, stored: 4 };
+const INK = '#2B251F';
+const SOFT = '#5E554A';
+const FAINT = '#716659';
+const RUBRIC = '#9E3A2A';
+const PAPER = '#F3EDE1';
+const SERIF = "'EB Garamond', Garamond, Georgia, serif";
 
 const angle = (k) => Math.PI * (1 - k / 12); // k = months elapsed since 1 Jan, 0–12
 const pt = (r, a) => [r * Math.cos(a), -r * Math.sin(a)];
@@ -55,17 +56,39 @@ function layout(groups) {
   return { rings, outer: rings.length ? rings[rings.length - 1].r : INNER_R };
 }
 
+/** Hatching and stipple as masks, so each ring keeps its own colour. */
+function defs(x, y, w, h) {
+  const area = `x="${x}" y="${y}" width="${w}" height="${h}"`;
+  return `<defs>
+    <pattern id="p-hatch" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(45)"><rect width="1.3" height="4" fill="#fff"/></pattern>
+    <pattern id="p-cross" patternUnits="userSpaceOnUse" width="4" height="4" patternTransform="rotate(-45)"><rect width="1.3" height="4" fill="#fff"/></pattern>
+    <pattern id="p-dots" patternUnits="userSpaceOnUse" width="4" height="4"><circle cx="2" cy="2" r="1" fill="#fff"/></pattern>
+    <mask id="m-covered" maskUnits="userSpaceOnUse" ${area}><rect ${area} fill="url(#p-hatch)"/></mask>
+    <mask id="m-heated" maskUnits="userSpaceOnUse" ${area}><rect ${area} fill="url(#p-hatch)"/><rect ${area} fill="url(#p-cross)"/></mask>
+    <mask id="m-extended" maskUnits="userSpaceOnUse" ${area}><rect ${area} fill="url(#p-dots)"/></mask>
+  </defs>`;
+}
+
+const SHAPE = {
+  fresh: (c) => `fill="${c}" fill-opacity="0.86"`,
+  shoulder: (c) => `fill="${c}" fill-opacity="0.34"`,
+  extended: (c) => `fill="${c}" mask="url(#m-extended)"`,
+  covered: (c) => `fill="${c}" mask="url(#m-covered)"`,
+  heated: (c) => `fill="${c}" mask="url(#m-heated)"`,
+  stored: (c) => `fill="${c}" fill-opacity="0.6"`,
+};
+
 export function renderArch(el, groups, ctx) {
-  const { country, month, showStored, todayFraction, highlight, inSeason } = ctx;
+  const { country, month, offSeason, todayFraction, highlight, inSeason } = ctx;
   const { rings, outer } = layout(groups);
   const longest = Math.max(4, ...rings.map((x) => x.item.name.length));
   const side = outer + 56;
   const top = outer + 44;
-  const bottom = 22 + longest * 6.6;
-  const parts = [];
+  const bottom = 22 + longest * 7;
+  const parts = [defs(-side, -top, side * 2, top + bottom)];
 
   if (highlight) {
-    parts.push(`<path d="${sector(INNER_R - 16, outer + 12, month - 1, month)}" fill="#ECE3D2"/>`);
+    parts.push(`<path d="${sector(INNER_R - 16, outer + 12, month - 1, month)}" fill="#E9E0CE"/>`);
   }
   for (let k = 1; k < 12; k++) {
     const [x0, y0] = pt(INNER_R - 16, angle(k));
@@ -74,25 +97,23 @@ export function renderArch(el, groups, ctx) {
   }
 
   MONTHS.forEach((m, i) => {
-    const [x, y] = pt(INNER_R - 34, angle(i + 0.5));
+    const [x, y] = pt(INNER_R - 36, angle(i + 0.5));
     const selected = highlight && i + 1 === month;
-    parts.push(`<g class="arch-month" data-month="${i + 1}">`
-      + (selected ? `<rect x="${f(x - 21)}" y="${f(y - 11)}" width="42" height="22" rx="11" fill="${INK}"/>` : '')
-      + `<text x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central" font-family="${MONO}" font-size="12" fill="${selected ? '#F6F1E7' : MUTED}">${m.toUpperCase()}</text></g>`);
+    parts.push(`<g class="arch-month" data-month="${i + 1}"><text x="${f(x)}" y="${f(y)}" text-anchor="middle" dominant-baseline="central"
+      font-family="${SERIF}" font-size="21" letter-spacing="1" style="font-variant-caps:all-small-caps" fill="${selected ? RUBRIC : SOFT}">${m}</text></g>`);
   });
 
+  const kinds = ['stored', 'covered', 'heated', 'extended', 'shoulder', 'fresh'].filter((k) => offSeason || !['stored', 'covered', 'heated', 'extended'].includes(k));
   for (const { item, r } of rings) {
-    const shapes = [`<path d="${band(r, WIDTH.track, 0, 12, false, false)}" fill="#EAE2D3"/>`];
-    if (showStored) {
-      for (const s of segments(item.stored)) {
-        shapes.push(`<path d="${band(r, WIDTH.stored, s.from - 1, s.to, s.capStart, s.capEnd)}" fill="${item.color}" fill-opacity="0.35"/>`);
+    const shapes = [`<path d="${band(r, WIDTH.track, 0, 12, false, false)}" fill="#E6DDCB"/>`];
+    for (const kind of kinds) {
+      for (const s of segments(item.modes[kind])) {
+        shapes.push(`<path d="${band(r, WIDTH[kind], s.from - 1, s.to, s.capStart, s.capEnd)}" ${SHAPE[kind](item.color)}/>`);
       }
     }
-    for (const s of segments(item.fresh)) {
-      shapes.push(`<path d="${band(r, WIDTH.fresh, s.from - 1, s.to, s.capStart, s.capEnd)}" fill="${item.color}"/>`);
-    }
     for (const x of [-r, r]) {
-      shapes.push(`<text transform="translate(${x} 12) rotate(90)" dominant-baseline="central" font-family="${SANS}" font-size="12" font-weight="600" fill="${INK}">${esc(item.name)}</text>`);
+      shapes.push(`<text transform="translate(${x} 12) rotate(90)" dominant-baseline="central" font-family="${SERIF}" font-size="14"
+        ${item.importOnly ? `font-style="italic" fill="${SOFT}"` : `fill="${INK}"`}>${esc(item.name)}</text>`);
     }
     parts.push(`<g class="ring" data-id="${esc(item.id)}" data-r="${r}">${shapes.join('')}</g>`);
   }
@@ -103,24 +124,26 @@ export function renderArch(el, groups, ctx) {
     const [x1, y1] = pt(outer + 18, a);
     const [tx, ty] = pt(outer + 26, a);
     const anchor = Math.cos(a) > 0.2 ? 'start' : Math.cos(a) < -0.2 ? 'end' : 'middle';
-    parts.push(`<line x1="${f(x0)}" y1="${f(y0)}" x2="${f(x1)}" y2="${f(y1)}" stroke="${INK}" stroke-width="1.5" stroke-dasharray="5 4" stroke-linecap="round"/>`
-      + `<text x="${f(tx)}" y="${f(ty)}" text-anchor="${anchor}" dominant-baseline="central" font-family="${MONO}" font-size="11" fill="${INK}">NOW</text>`);
+    parts.push(`<line x1="${f(x0)}" y1="${f(y0)}" x2="${f(x1)}" y2="${f(y1)}" stroke="${RUBRIC}" stroke-width="1.2"/>`
+      + `<text x="${f(tx)}" y="${f(ty)}" text-anchor="${anchor}" dominant-baseline="central" font-family="${SERIF}" font-style="italic" font-size="20" fill="${RUBRIC}">today</text>`);
   }
 
-  parts.push(`<line x1="${-side + 16}" y1="1" x2="${side - 16}" y2="1" stroke="${INK}" stroke-width="1.5" stroke-linecap="round"/>`);
+  parts.push(`<line x1="${-side + 16}" y1="1" x2="${side - 16}" y2="1" stroke="${INK}" stroke-width="1"/>`);
 
   const centre = highlight
-    ? `<text x="0" y="-92" text-anchor="middle" font-family="${MONO}" font-size="12" letter-spacing="2" fill="${MUTED}">${esc(country.name.toUpperCase())}</text>`
-      + `<text x="0" y="-38" text-anchor="middle" font-family="${SERIF}" font-size="60" fill="${INK}">${MONTHS_LONG[month - 1]}</text>`
-      + `<text x="0" y="-14" text-anchor="middle" font-family="${MONO}" font-size="12" letter-spacing="1" fill="${MUTED}">${inSeason} IN SEASON</text>`
-    : `<text x="0" y="-78" text-anchor="middle" font-family="${MONO}" font-size="12" letter-spacing="2" fill="${MUTED}">JAN ↗ JUL ↘ DEC</text>`
-      + `<text x="0" y="-24" text-anchor="middle" font-family="${SERIF}" font-size="60" fill="${INK}">${esc(country.name)}</text>`;
+    ? `<text x="0" y="-118" text-anchor="middle" font-family="${SERIF}" font-size="21" letter-spacing="2" style="font-variant-caps:all-small-caps" fill="${FAINT}">${esc(country.name)}</text>`
+      + `<text x="0" y="-48" text-anchor="middle" font-family="${SERIF}" font-style="italic" font-size="76" fill="${INK}">${MONTHS_LONG[month - 1]}</text>`
+      + `<text x="0" y="-14" text-anchor="middle" font-family="${SERIF}" font-style="italic" font-size="21" fill="${SOFT}">${inSeason} in season</text>`
+    : `<text x="0" y="-96" text-anchor="middle" font-family="${SERIF}" font-size="21" letter-spacing="2" style="font-variant-caps:all-small-caps" fill="${FAINT}">January to December</text>`
+      + `<text x="0" y="-30" text-anchor="middle" font-family="${SERIF}" font-style="italic" font-size="${country.name.length > 12 ? 52 : 70}" fill="${INK}">${esc(country.name)}</text>`;
   parts.push(centre);
 
   const label = `Half-year arch of ${rings.length} items in ${country.name}`;
   el.innerHTML = `<svg class="arch" xmlns="http://www.w3.org/2000/svg" viewBox="${-side} ${-top} ${side * 2} ${top + bottom}"
     role="img" aria-label="${esc(label)}" preserveAspectRatio="xMidYMid meet">${parts.join('')}</svg>`;
 }
+
+export const ARCH_PAPER = PAPER;
 
 /** What is under the pointer: the ring's item id and/or the month (1–12). */
 export function archHit(el, event) {

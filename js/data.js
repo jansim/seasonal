@@ -4,6 +4,21 @@ export const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', '
 export const MONTHS_LONG = ['January', 'February', 'March', 'April', 'May', 'June', 'July',
   'August', 'September', 'October', 'November', 'December'];
 
+/**
+ * How produce reaches the shelf, in drawing order. `fresh` is the main local season;
+ * the rest only appear where a source distinguishes them.
+ */
+export const MODES = ['fresh', 'shoulder', 'extended', 'covered', 'heated', 'stored'];
+export const OFF_SEASON = ['extended', 'covered', 'heated', 'stored'];
+const MODE_LABELS = {
+  fresh: 'In season',
+  shoulder: 'Early or late',
+  extended: 'Extended season',
+  covered: 'Under cover',
+  heated: 'Heated glasshouse',
+  stored: 'From store',
+};
+
 const SEASONS = {
   north: [
     { name: 'Winter', months: [12, 1, 2] },
@@ -33,39 +48,60 @@ async function getJSON(path) {
 
 export const loadCountries = () => getJSON('data/countries.json');
 
-/** Load one country and merge it with the shared produce catalogue. */
+/** Load one region and merge it with the catalogue, its imports and the illustrations. */
 export async function loadCountry(entry) {
-  const [catalogue, country] = await Promise.all([
+  const [catalogue, country, art, imports] = await Promise.all([
     getJSON('data/produce.json'),
     getJSON(`data/${entry.file}`),
+    getJSON('data/art.json').catch(() => ({})),
+    entry.imports ? getJSON(`data/${entry.imports}`) : null,
   ]);
   const hemisphere = country.hemisphere === 'south' ? 'south' : 'north';
   // The growing year starts in January up north and in July down south.
   const yearStart = country.yearStart ?? (hemisphere === 'south' ? 7 : 1);
 
-  const items = Object.entries(country.produce).map(([id, local]) => {
+  const make = (id, local = {}) => {
     const base = catalogue.items[id] ?? {};
+    const modes = Object.fromEntries(MODES.map((m) => [m, normaliseMonths(local[m])]));
+    const trade = imports?.items[id];
+    const peak = trade ? Math.max(...trade.t) : 0;
     const item = {
       id,
       name: local.name ?? base.name ?? id,
       category: local.category ?? base.category ?? 'other',
-      color: local.color ?? base.color ?? '#655D52',
-      fresh: normaliseMonths(local.fresh),
-      stored: normaliseMonths(local.stored),
+      color: local.color ?? base.color ?? '#6B6155',
+      latin: base.latin ?? '',
+      art: art[id] ?? null,
+      modes,
+      local: normaliseMonths(MODES.flatMap((m) => modes[m])),
+      imports: peak > 0 ? { t: trade.t, rel: trade.t.map((t) => t / peak), from: trade.from, peak } : null,
     };
+    item.importOnly = !item.local.length;
     item.sortKey = seasonKey(item, yearStart);
     return item;
-  });
+  };
+
+  const items = Object.entries(country.produce).map(([id, local]) => make(id, local));
+  // Produce the region imports but does not grow (oranges in Germany, say).
+  for (const id of Object.keys(imports?.items ?? {})) {
+    if (!country.produce[id] && catalogue.items[id]) items.push(make(id));
+  }
 
   const categories = Object.entries(catalogue.categories).map(([id, c]) => ({ id, name: c.name }));
   if (items.some((i) => !catalogue.categories[i.category])) categories.push({ id: 'other', name: 'Other' });
+  const present = new Set(items.flatMap((i) => MODES.filter((m) => i.modes[m].length)));
 
   return {
     code: country.code,
     name: country.name,
     note: country.note ?? '',
     hemisphere,
+    resolution: country.resolution ?? 'month',
     seasons: country.seasons ?? SEASONS[hemisphere],
+    sources: country.sources ?? [],
+    imports: imports ? { ...imports.source, years: imports.years } : null,
+    labels: { ...MODE_LABELS, ...country.modeLabels },
+    modes: MODES.filter((m) => present.has(m)),
     categories,
     items,
   };
@@ -74,6 +110,9 @@ export async function loadCountry(entry) {
 function normaliseMonths(list = []) {
   return [...new Set(list)].filter((m) => Number.isInteger(m) && m >= 1 && m <= 12).sort((a, b) => a - b);
 }
+
+/** The modes an item is in during one month, e.g. ['fresh', 'stored']. */
+export const modesIn = (item, month) => MODES.filter((m) => item.modes[m].includes(month));
 
 /**
  * Contiguous runs of months, wrapping around the new year.
@@ -115,32 +154,40 @@ export function segments(months) {
 export function describe(months) {
   if (!months.length) return '';
   return runs(months).map((r) => {
-    if (r.full) return 'All year';
+    if (r.full) return 'all year';
     const end = ((r.start + r.length - 2) % 12) + 1;
     return r.length === 1 ? MONTHS[r.start - 1] : `${MONTHS[r.start - 1]}–${MONTHS[end - 1]}`;
   }).join(', ');
 }
 
-/** Sort key: where the main fresh run starts, counted from the growing-year start. */
+/** Months where imports run at three quarters of their yearly peak or more. */
+export const importPeak = (item) => (item.imports ? item.imports.rel.map((r, i) => (r >= 0.75 ? i + 1 : 0)).filter(Boolean) : []);
+
+/** Sort key: where the main local run starts, counted from the growing-year start. */
 function seasonKey(item, yearStart) {
   const pick = (months) => runs(months).sort((a, b) => b.length - a.length)[0];
-  const main = pick(item.fresh) ?? pick(item.stored);
-  if (!main) return 99;
+  const order = [item.modes.fresh, item.modes.shoulder, item.modes.extended, item.modes.covered, item.modes.heated, item.modes.stored, importPeak(item)];
+  const tier = order.findIndex((m) => m.length);
+  const main = tier >= 0 ? pick(order[tier]) : null;
+  if (!main) return 999;
   const offset = (main.start - yearStart + 12) % 12;
-  return offset + (item.fresh.length ? 0 : 12) + main.length / 100;
+  return (tier >= 2 ? 12 : 0) + (tier === 6 ? 24 : 0) + offset + main.length / 100;
 }
 
 /** Group by category and sort, after applying the active filters. */
-export function arrange(country, { category, query, sort, showStored }) {
+export function arrange(country, { category, query, sort, offSeason, imports }) {
   const q = query.trim().toLowerCase();
+  const visible = (i) => (i.importOnly ? imports
+    : i.modes.fresh.length || i.modes.shoulder.length || offSeason);
   const items = country.items
     .filter((i) => category === 'all' || i.category === category)
-    .filter((i) => !q || i.name.toLowerCase().includes(q))
-    .filter((i) => i.fresh.length || showStored)
+    .filter((i) => !q || i.name.toLowerCase().includes(q) || i.latin.toLowerCase().includes(q))
+    .filter(visible)
     .sort((a, b) => (sort === 'name' ? a.name.localeCompare(b.name) : a.sortKey - b.sortKey || a.name.localeCompare(b.name)));
-  return country.categories
-    .map((c) => ({ ...c, items: items.filter((i) => i.category === c.id) }))
-    .filter((g) => g.items.length);
+  return [
+    ...country.categories.map((c) => ({ ...c, items: items.filter((i) => i.category === c.id && !i.importOnly) })),
+    { id: 'imported', name: 'Imported, not in the local calendar', items: items.filter((i) => i.importOnly) },
+  ].filter((g) => g.items.length);
 }
 
 /** Season bands for Jan–Dec: consecutive months of the same season merged. */
