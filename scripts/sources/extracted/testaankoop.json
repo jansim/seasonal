@@ -36,7 +36,7 @@
  "lente-uitjes": {"original": [4, 5, 6, 7, 8, 9, 10]},
  "oesterzwam": {"original": [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]},
  "paprika": {"extended": [4, 5, 6, 11], "original": [7, 8, 9, 10]},
- "pastinaak": {"extended": [4], "original": [1, 2, 3, 4, 9, 10, 11, 12]},
+ "pastinaak": {"extended": [4], "original": [1, 2, 3, 9, 10, 11, 12]},
  "peer": {"extended": [4, 5, 6, 7, 8], "original": [1, 2, 3, 9, 10, 11, 12]},
  "peultjes": {"original": [5, 6, 7]},
  "pompoen": {"original": [1, 2, 8, 9, 10, 11, 12]},
@@ -62,6 +62,6 @@
  "venkel": {"extended": [5, 11], "original": [6, 7, 8, 9, 10]},
  "winterpostelein": {"original": [1, 2, 3, 4, 9, 10, 11, 12]},
  "witlof": {"extended": [6, 7, 8, 9], "original": [1, 2, 3, 4, 5, 10, 11, 12]},
- "witte kool": {"extended": [1, 2, 3, 4, 5, 6], "original": [1, 2, 3, 4, 7, 8, 9, 10, 11, 12]},
+ "witte kool": {"extended": [1, 2, 3, 4, 5, 6], "original": [7, 8, 9, 10, 11, 12]},
  "wortelpeterselie": {"original": [1, 2, 3, 4, 9, 10, 11, 12]}
 }

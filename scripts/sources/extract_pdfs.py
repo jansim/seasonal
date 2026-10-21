@@ -107,7 +107,8 @@ def testaankoop(path):
             lines[(w[5], w[6])].append(w)
     labels = [{'text': ' '.join(x[4] for x in ws), 'y': (min(x[1] for x in ws) + max(x[3] for x in ws)) / 2} for ws in lines.values()]
 
-    out = collections.defaultdict(lambda: collections.defaultdict(set))
+    # Later shapes are drawn over earlier ones; where a white pill covers a line, the pill is what readers see.
+    seen = collections.defaultdict(dict)
     for d in page.get_drawings():
         r = d['rect']
         if not 60 < r.y0 < 1280 or r.width <= 5:
@@ -121,7 +122,13 @@ def testaankoop(path):
         y = (r.y0 + r.y1) / 2
         best = min(labels, key=lambda l: abs(l['y'] - y))
         if abs(best['y'] - y) < 9:
-            out[best['text']][kind].update(i + 1 for i, c in enumerate(centres) if r.x0 - 2 <= c <= r.x1 + 2)
+            for i, c in enumerate(centres):
+                if r.x0 - 2 <= c <= r.x1 + 2:
+                    seen[best['text']][i + 1] = kind
+    out = collections.defaultdict(lambda: collections.defaultdict(set))
+    for name, months in seen.items():
+        for month, kind in months.items():
+            out[name][kind].add(month)
     return out
 
 
