@@ -4,6 +4,7 @@
     pip install onnxruntime pillow numpy
     python3 scripts/art/build_art.py --model birefnet.onnx --metadata pom_metadata.csv --cache ./scans
     python3 scripts/art/build_art.py --thumbs     # just the small row thumbnails
+    python3 scripts/art/build_art.py --parts      # just the separate views (whole and halved fruit)
 
 Inputs, fetched once and kept in --cache so repeat runs never touch the network:
   * pom_metadata.csv  https://archive.org/download/usda_pomological_watercolors_20200211/pom_metadata.csv
@@ -45,6 +46,10 @@ PLATES = {
     'chestnuts': 'POM00000125', 'hazelnuts': 'POM00007423', 'walnuts': 'POM00007473',
     'aubergines': 'POM00007167',
 }
+# Plates whose separate pieces belong together as one group (a scatter of nuts).
+WHOLE = {'hazelnuts'}
+PART_GAP = 5         # views closer than about this many px count as one
+MAX_PARTS = 3
 # The collection files these red currant varieties under gooseberries.
 SUBJECT = {'currants': 'red currant'}
 
@@ -67,9 +72,8 @@ def mask(session, im):
     return np.asarray(Image.fromarray((m * 255).astype(np.uint8)).resize(im.size, Image.BICUBIC), dtype=np.float32) / 255
 
 
-def keep_main(alpha):
-    """Drop specks (pencil notes, stamps) far smaller than the painting itself."""
-    solid = alpha > 0.5
+def components(solid):
+    """Label the 4-connected regions of a boolean array: (labels, sizes), with label 0 for the background."""
     h, w = solid.shape
     labels = np.zeros((h, w), np.int32)
     sizes = [0]
@@ -88,6 +92,12 @@ def keep_main(alpha):
                     labels[yy, xx] = n
                     stack.append((yy, xx))
         sizes.append(count)
+    return labels, sizes
+
+
+def keep_main(alpha):
+    """Drop specks (pencil notes, stamps) far smaller than the painting itself."""
+    labels, sizes = components(alpha > 0.5)
     big = max(sizes)
     keep = np.isin(labels, [i for i, s in enumerate(sizes) if i and s >= big * 0.02])
     # keep the soft edge around kept parts, drop everything around removed ones
@@ -141,6 +151,58 @@ def cutout(src, session):
     return out
 
 
+def split_parts(img):
+    """Cut a plate that paints the fruit more than once (whole and halved, say) into its separate views.
+
+    Returns a list of RGBA crops in reading order, or [] when the painting is one piece. Each crop keeps
+    the plate's scale, so the page can set the views side by side as well as stacked.
+    """
+    a = np.asarray(img.getchannel('A'))
+    # join soft edges and nearby specks to their view, but not views a clear gap apart
+    near = np.asarray(Image.fromarray(((a > 24) * 255).astype(np.uint8)).filter(ImageFilter.MaxFilter(PART_GAP))) > 0
+    labels, sizes = components(near)
+    total = sum(sizes)
+    views = [i for i, s in enumerate(sizes) if i and s >= total * 0.04]
+    if not 2 <= len(views) <= MAX_PARTS:
+        return []
+    # specks too small to be a view go with the nearest one
+    centre = {i: np.argwhere(labels == i).mean(axis=0) for i in range(1, len(sizes))}
+    owner = {i: i if i in views else min(views, key=lambda v: np.hypot(*(centre[i] - centre[v]))) for i in centre}
+    parts = []
+    for v in views:
+        keep = np.isin(labels, [i for i, o in owner.items() if o == v])
+        part = np.asarray(img).copy()
+        part[..., 3] = np.where(keep, part[..., 3], 0)
+        part = Image.fromarray(part, 'RGBA')
+        box = part.getchannel('A').point(lambda x: 255 if x > 8 else 0).getbbox()
+        pad = 12
+        parts.append((box, part.crop((max(0, box[0] - pad), max(0, box[1] - pad), min(img.width, box[2] + pad), min(img.height, box[3] + pad)))))
+    # top to bottom, then left to right for views side by side
+    parts.sort(key=lambda p: (p[0][1] // (img.height // 4), p[0][0]))
+    return [p for _, p in parts]
+
+
+def write_parts(item, img):
+    """Save each separate view of a plate; returns their entries for art.json (or None for a single view)."""
+    parts = [] if item in WHOLE else split_parts(img)
+    for old in (OUT / 'parts').glob(f'{item}-*.webp'):
+        old.unlink()
+    if not parts:
+        return None
+    (OUT / 'parts').mkdir(exist_ok=True)
+    out = []
+    for n, part in enumerate(parts, 1):
+        part.save(OUT / 'parts' / f'{item}-{n}.webp', 'WEBP', quality=80, method=6)
+        out.append({'file': f'img/plates/parts/{item}-{n}.webp', 'width': part.width, 'height': part.height})
+    return out
+
+
+def set_parts(credit, parts):
+    credit.pop('parts', None)
+    if parts:
+        credit['parts'] = parts
+
+
 def write_thumb(item):
     """A small copy for the timeline rows, so the list doesn't load every full plate."""
     img = Image.open(OUT / f'{item}.webp')
@@ -166,6 +228,7 @@ def main():
     ap.add_argument('--cache')
     ap.add_argument('--only', nargs='*')
     ap.add_argument('--thumbs', action='store_true', help='only redo the small row thumbnails from existing plates')
+    ap.add_argument('--parts', action='store_true', help='only redo the separate views from existing plates')
     args = ap.parse_args()
     credits_path = ROOT / 'data' / 'art.json'
 
@@ -173,10 +236,13 @@ def main():
         body = ',\n'.join(f'  {json.dumps(k)}: {json.dumps(credits[k], ensure_ascii=False)}' for k in PLATES if k in credits)
         credits_path.write_text('{\n' + body + '\n}\n')
 
-    if args.thumbs:
+    if args.thumbs or args.parts:
         credits = json.loads(credits_path.read_text())
         for item in credits:
-            credits[item]['thumb'] = write_thumb(item)
+            if args.thumbs:
+                credits[item]['thumb'] = write_thumb(item)
+            if args.parts:
+                set_parts(credits[item], write_parts(item, Image.open(OUT / f'{item}.webp')))
         save(credits)
         return
     if not (args.model and args.metadata and args.cache):
@@ -221,6 +287,7 @@ def main():
             'scientific': r['sci_name'],
             'origin': r['geo_origin'] or None,
         }
+        set_parts(credits[item], write_parts(item, img))
         print(f'{item:14} {pid} {img.width}x{img.height} {name} {r["year"]}', flush=True)
         save(credits)
 

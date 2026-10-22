@@ -104,7 +104,10 @@ svg[aria-hidden="true"] {
 .country-pick:hover .country-name { border-bottom-style: solid; }
 
 .frontis { margin: 0; width: 250px; text-align: center; }
-.frontis img { display: block; width: auto; height: auto; max-width: 100%; max-height: 260px; margin: 0 auto 10px; }
+.frontis > img { display: block; width: auto; height: auto; max-width: 100%; max-height: 260px; margin: 0 auto 10px; }
+.plate-parts { display: flex; align-items: flex-end; justify-content: center; gap: 4px; }
+.plate-parts img { flex: none; width: auto; display: block; }
+.frontis .plate-parts { margin: 0 auto 10px; }
 .frontis figcaption { font-size: 14px; line-height: 1.35; color: var(--ink-soft); font-style: italic; }
 .frontis figcaption .sc { font-style: normal; display: block; margin-bottom: 2px; color: var(--ink-faint); }
 
@@ -222,7 +225,8 @@ svg[aria-hidden="true"] {
   border: 0; background: none;
   transition: opacity .15s;
 }
-.specimen img { height: 128px; width: auto; display: block; transition: transform .25s; }
+.specimen > img, .specimen .plate-parts { height: 128px; }
+.specimen img { width: auto; display: block; transition: transform .25s; }
 .specimen:hover img { transform: translateY(-3px); }
 .specimen span { font-style: italic; font-size: 15px; color: var(--ink-soft); white-space: nowrap; }
 .specimen.is-focus span, .specimen.is-pinned span { color: var(--rubric); }
@@ -438,6 +442,7 @@ svg[aria-hidden="true"] {
   font-size: 15.5px; line-height: 1.4;
 }
 .card-plate { display: block; width: auto; height: auto; max-width: 100%; max-height: 210px; margin: 0 auto 10px; }
+.card-plate.plate-parts { display: flex; }
 .card h3 { margin: 0; font-weight: 400; font-size: 26px; line-height: 1.1; }
 .card .latin { margin: 2px 0 10px; font-style: italic; color: var(--ink-soft); }
 .card dl { margin: 0; display: grid; grid-template-columns: minmax(0, 9.5em) 1fr; gap: 3px 12px; align-items: baseline; }
@@ -556,7 +561,7 @@ body.print-mode .tl-item:hover { background: transparent; }
   .search { flex: 1 1 140px; }
   .search input { width: 100%; }
   .month-head h2 { font-size: 36px; min-width: 0; flex: 1; }
-  .specimen img { height: 96px; }
+  .specimen > img, .specimen .plate-parts { height: 96px; }
   .notes { grid-template-columns: 1fr; gap: 28px; }
   .plate-list { grid-template-columns: 1fr; }
   body:not(.print-mode) .tl-label {

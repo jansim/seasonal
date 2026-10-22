@@ -194,7 +194,7 @@ function renderMonth(visible) {
   const fresh = local.filter((i) => i.art && (i.modes.fresh.includes(m) || i.modes.shoulder.includes(m)));
   el.gallery.innerHTML = fresh.map((i) => `
     <button type="button" class="specimen${pinned === i.id ? ' is-pinned' : ''}" data-id="${esc(i.id)}" aria-pressed="${pinned === i.id}">
-      <img src="${esc(i.art.file)}" alt="" width="${i.art.width}" height="${i.art.height}" decoding="async"><span>${esc(i.name)}</span>
+      ${plateHTML(i.art)}<span>${esc(i.name)}</span>
     </button>`).join('');
   el.gallery.parentElement.classList.toggle('no-gallery', !fresh.length);
   fadeGallery();
@@ -225,6 +225,26 @@ function fadeGallery() {
 el.gallery.addEventListener('scroll', fadeGallery, { passive: true });
 window.addEventListener('resize', fadeGallery);
 
+const PART_GAP = 4;
+
+/**
+ * A plate as <img>, or, when it paints the fruit more than once and there is room, its separate views
+ * side by side at the plate's own scale. `box` is the space it gets in CSS px (an unbounded width
+ * always sets the views side by side); `cls` and `alt` go on the outer element.
+ */
+function plateHTML(art, { box = { w: Infinity, h: 1 }, cls = '', alt = '' } = {}) {
+  const img = (p, attrs) => `<img src="${esc(p.file)}" width="${p.width}" height="${p.height}" decoding="async" ${attrs}>`;
+  const parts = art.parts ?? [];
+  const tallest = Math.max(...parts.map((p) => p.height));
+  const wide = parts.reduce((sum, p) => sum + p.width, PART_GAP * (parts.length - 1));
+  const sideBySide = Math.min(box.h / tallest, box.w / wide);
+  const stacked = Math.min(box.h / art.height, box.w / art.width);
+  if (!parts.length || sideBySide < stacked * 1.05) return img(art, `class="${cls}" alt="${esc(alt)}"`);
+  const height = Number.isFinite(box.w) ? ` style="height:${Math.floor(sideBySide * tallest)}px"` : '';
+  return `<span class="plate-parts ${cls}" role="img" aria-label="${esc(alt)}"${height}>${parts.map((p) =>
+    img(p, `alt="" style="height:${(100 * p.height / tallest).toFixed(2)}%"`)).join('')}</span>`;
+}
+
 function plateCaption(art, item) {
   const variety = art.variety ? `‘${esc(art.variety)}’ ` : '';
   return `${variety}${esc(art.subject ?? item.name.toLowerCase())}, painted by ${esc(art.artist)}${art.year ? `, ${esc(art.year)}` : ''}`;
@@ -243,7 +263,7 @@ function renderFrontis(visible) {
   fig.hidden = false;
   if (fig.dataset.id === pick.id) return;
   fig.dataset.id = pick.id;
-  fig.innerHTML = `<img src="${esc(pick.art.file)}" alt="Watercolour of ${esc(pick.name.toLowerCase())}" width="${pick.art.width}" height="${pick.art.height}">
+  fig.innerHTML = `${plateHTML(pick.art, { box: { w: 250, h: 260 }, alt: `Watercolour of ${pick.name.toLowerCase()}` })}
     <figcaption><span class="sc">${esc(pick.name)}</span>${plateCaption(pick.art, pick)}</figcaption>`;
 }
 
@@ -333,7 +353,7 @@ function cardHTML(item) {
       <div class="spark-axis">${MONTHS.map((x) => `<span>${x[0]}</span>`).join('')}</div></div>`;
   }
   const plate = item.art
-    ? `<img class="card-plate" src="${esc(item.art.file)}" alt="" width="${item.art.width}" height="${item.art.height}">`
+    ? plateHTML(item.art, { box: { w: 274, h: 210 }, cls: 'card-plate' })
     : '';
   const credit = item.art
     ? `<p class="credit">${plateCaption(item.art, item)}. ${esc(PLATES.cite)}, National Agricultural Library.</p>`
