@@ -154,5 +154,7 @@ The images are in the public domain; the requested attribution is:
 `scripts/art/build_art.py` takes the scans from the Internet Archive's mirror of the
 collection and cuts each painting from its paper with
 [BiRefNet](https://github.com/ZhengPeng7/BiRefNet) (MIT licence). It also removes the
-paper tint from the soft edges and writes `img/plates/*.webp` and `data/art.json`. The
-site credits each painting's artist and year wherever the painting is shown.
+paper tint from the soft edges and writes `img/plates/*.webp` and `data/art.json`. Plates
+that paint the fruit more than once (whole and halved, say) are also cut into their separate
+views in `img/plates/parts/`, so the page can set them side by side where that fits better
+than stacked. The site credits each painting's artist and year wherever the painting is shown.
