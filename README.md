@@ -1,15 +1,26 @@
 # seasonal
 
-A calendar with information on seasonal produce.
+A calendar of seasonal fruit and vegetables for seven regions: Germany, Austria, Belgium,
+France, the United Kingdom, Ontario and Australia. It shows when produce is grown locally,
+how it is grown (open field, under cover, heated glass, from store) wherever the source
+says so, and, for the European regions, what is imported each month and from where.
+Fruit is illustrated with watercolours from the USDA Pomological Watercolor Collection.
 
-An interactive, printable seasonal fruit & vegetable calendar with two views:
+Two views:
 
-- **Timeline**: one row per item, with rounded bars across Jan–Dec.
-- **Half-year arch**: one concentric ring per item, with Jan on the left and Dec on the right.
+- **Timeline**: one row per item. The main season is a watercolour wash, cover and glass
+  are hatched below it, storage is a dotted line, and imports are a small stepped
+  silhouette under the row.
+- **Half-year arch**: one concentric ring per item, with January on the left and
+  December on the right.
 
-You can switch country, filter by category, search, sort, show or hide produce from storage, step through months (or click a month in either chart), and hover over an item to highlight it. The URL keeps the current state, so any view can be shared.
+You can switch region, filter by category, search (common or Latin names), sort, show or
+hide glass and store, show imports, and step through months. Hover over a row for the
+painting, the season in each growing method, and the month's imports and origins. Click
+a name to pin it. The URL keeps the current state, so any view can be shared.
 
-**Print / export** opens a page preview (A4, A3 or Letter, in landscape or portrait). From there you can print or save as PDF, and download the arch as SVG or the current data as CSV. Printing straight from the browser (Ctrl/Cmd + P) uses the same print layout.
+**Print** opens a page preview (A4, A3 or Letter, landscape or portrait). From there you
+can print or save as PDF, or download the arch as SVG or the data as CSV.
 
 ## Stack
 
@@ -18,12 +29,16 @@ Plain HTML, CSS and JavaScript modules. There is no build step and nothing to in
 ```
 index.html
 css/style.css
-js/app.js        state, controls, print/export
-js/timeline.js   timeline view
-js/arch.js       arch view (SVG)
-js/data.js       loading + month maths
-data/            JSON data (see below)
+js/app.js           state, controls, month panel, card, notes, print/export
+js/timeline.js      timeline view
+js/arch.js          arch view (SVG)
+js/data.js          loading and month maths
+data/               JSON data (see below)
+img/plates/         the watercolours, cut out of their paper
 scripts/validate.mjs
+scripts/build-imports.mjs
+scripts/sources/    how each region's data was extracted (see its README)
+scripts/art/        how the watercolours were cut out
 ```
 
 Run it locally with any static server, for example:
@@ -35,55 +50,109 @@ python3 -m http.server 8000
 
 ### Deployment
 
-`.github/workflows/deploy.yml` validates the data and deploys the site to GitHub Pages on every push to `main`. Pull requests only get the validation step. To turn it on, go to the repo's **Settings → Pages → Build and deployment → Source** and choose **GitHub Actions**.
+`.github/workflows/deploy.yml` validates the data and deploys the site to GitHub Pages on
+every push to `main`. Pull requests only get the validation step. To turn it on, go to the
+repo's **Settings → Pages → Build and deployment → Source** and choose **GitHub Actions**.
 
 ## Data
 
-All data is plain JSON in `data/`. Months are numbers from `1` (Jan) to `12` (Dec). Runs that cross the new year (e.g. `[11, 12, 1, 2]`) are handled automatically.
+All data is plain JSON in `data/`. Months are numbers from `1` (Jan) to `12` (Dec). Runs
+that cross the new year (e.g. `[11, 12, 1, 2]`) are handled automatically.
 
-**`data/produce.json`** is the shared catalogue: categories, plus a display name, category and colour for each item.
+**`data/produce.json`** is the shared catalogue: categories, plus a display name, category,
+colour and scientific name for each item.
 
-```json
-{
-  "categories": { "fruit": { "name": "Fruit" }, "vegetables": { "name": "Vegetables" } },
-  "items": {
-    "apples": { "name": "Apples", "category": "fruit", "color": "#7EAA2F" }
-  }
-}
-```
-
-**`data/countries.json`** lists the countries in the picker:
+**`data/countries.json`** lists the regions in the picker, with their data and (optional)
+imports file:
 
 ```json
-[{ "code": "de", "name": "Germany", "file": "countries/de.json" }]
+[{ "code": "de", "name": "Germany", "file": "countries/de.json", "imports": "imports/de.json" }]
 ```
 
-**`data/countries/<code>.json`** holds the months for each item in that country:
+**`data/countries/<code>.json`** holds the months for each item, split by how it reaches
+the shop, plus the sources:
 
 ```json
 {
   "code": "de",
   "name": "Germany",
   "hemisphere": "north",
-  "note": "Shown in the footer.",
+  "note": "Shown under the chart and in About the data.",
+  "modeLabels": { "fresh": "Open field" },
+  "sources": [
+    { "title": "…", "cite": "Verbraucherzentralen 2022", "publisher": "…", "year": 2022,
+      "url": "https://…", "licence": "…", "covers": "What this source provides" }
+  ],
   "produce": {
-    "apples": { "fresh": [8, 9, 10, 11], "stored": [12, 1, 2, 3, 4] },
-    "zucchini": { "name": "Courgettes", "fresh": [6, 7, 8, 9] },
-    "feijoa": { "name": "Feijoa", "category": "fruit", "color": "#6E8B3D", "fresh": [3, 4, 5] }
+    "strawberries": { "fresh": [6, 7, 8, 9], "covered": [5, 10] },
+    "apples": { "fresh": [8, 9, 10, 11], "stored": [1, 2, 3, 4, 5, 6, 7, 8, 11, 12] }
   }
 }
 ```
 
-- `fresh` and `stored` are both optional, but each item needs at least one of them. The same month can't be in both.
-- A country can override `name`, `category` or `color` for an item (e.g. "Courgettes" in the UK). It can also add items that aren't in the catalogue, as long as it gives all three.
-- `hemisphere` (`north`/`south`) sets the season bands and the order used by "by season" sorting. You can also give an explicit `seasons` array (`[{ "name": "Winter", "months": [12, 1, 2] }, …]`) or a `yearStart` month.
+| Mode | Meaning |
+|---|---|
+| `fresh` | the main local season |
+| `shoulder` | early or late months with little about (UK: "coming into season") |
+| `extended` | kept going by heated glass or long cold storage, where the source doesn't say which |
+| `covered` | grown under foil, fleece or unheated glass |
+| `heated` | grown in heated glasshouses |
+| `stored` | harvested earlier and kept in store |
 
-### Adding a country
+Each item needs at least one mode. `shoulder` and `extended` can't share a month with
+`fresh`; the other modes can, because produce from the field and from the store are often
+on sale side by side. `modeLabels` renames a mode in the legend to match the source's own
+wording. `hemisphere` (`north`/`south`) sets the season bands and the order used by "by
+season" sorting. `"resolution": "season"` marks a source that only lists seasons.
 
-1. Create `data/countries/<code>.json`.
-2. Add it to `data/countries.json`.
+**`data/imports/<code>.json`** has, per item, the average monthly imports in tonnes (`t`)
+and the main origins per month (`from`, ISO country codes with their share in percent).
+It is generated by `scripts/build-imports.mjs`.
+
+**`data/art.json`** credits each watercolour: NAL identifier, artist, year, variety.
+
+### Sources
+
+| Region | Local production | Imports |
+|---|---|---|
+| Germany | Verbraucherzentralen, *Heimisches Obst und Gemüse*, 2022 | Eurostat Comext |
+| Austria | DIE UMWELTBERATUNG via ORF, *Gemüse & Obst der Saison*, 2018 | Eurostat Comext |
+| Belgium | Test-Aankoop, *Groenten- en fruitkalender* | Eurostat Comext |
+| France | ADEME, *Fruits et légumes de saison* (Impact CO₂) | Eurostat Comext |
+| United Kingdom | BBC Good Food, seasonal calendar | HMRC Overseas Trade Statistics |
+| Canada (Ontario) | Foodland Ontario availability guide | – |
+| Australia | Sustainable Table, *Seasonal Produce Guide*, 2023 | – |
+
+Links, licences and the choices made while mapping each source are in
+[`scripts/sources/README.md`](scripts/sources/README.md).
+
+### Adding a region
+
+1. Find a calendar published in that region. Add an extractor or fetcher to
+   `scripts/sources/` and a mapping to `build_countries.py`, or write
+   `data/countries/<code>.json` by hand. Either way, list the source in `sources`.
+2. Add it to `data/countries.json`. For an EU member, add its code to `COUNTRIES` in
+   `scripts/build-imports.mjs` and run it once.
 3. Run `node scripts/validate.mjs`.
 
-The site picks a default country from the browser language (e.g. `en-GB` gives the United Kingdom). You can also link to one directly with `?country=<code>`.
+The site picks a default region from the browser language (e.g. `de-AT` gives Austria).
+You can also link to one directly with `?country=<code>`.
 
-The bundled seasons are typical averages. They vary by region and year.
+## The paintings
+
+The fruit illustrations are from the
+[USDA Pomological Watercolor Collection](https://naldc.nal.usda.gov/usda_pomological_watercolor):
+about 7,500 watercolours of fruit and nut varieties, painted for the U.S. Department of
+Agriculture between 1886 and 1942 by Deborah Griscom Passmore, Amanda Almira Newton,
+Mary Daisy Arnold, Royal Charles Steadman, Ellen Isham Schutt, James Marion Shull,
+Bertha Heiges, Elsie E. Lower, William Henry Prestele, L.C.C. Krieger and others.
+The images are in the public domain; the requested attribution is:
+
+> U.S. Department of Agriculture Pomological Watercolor Collection. Rare and Special
+> Collections, National Agricultural Library, Beltsville, MD 20705
+
+`scripts/art/build_art.py` takes the scans from the Internet Archive's mirror of the
+collection and cuts each painting from its paper with
+[BiRefNet](https://github.com/ZhengPeng7/BiRefNet) (MIT licence). It also removes the
+paper tint from the soft edges and writes `img/plates/*.webp` and `data/art.json`. The
+site credits each painting's artist and year wherever the painting is shown.

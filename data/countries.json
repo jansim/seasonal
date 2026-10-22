@@ -1,5 +1,9 @@
 [
-  { "code": "de", "name": "Germany",        "file": "countries/de.json" },
-  { "code": "gb", "name": "United Kingdom", "file": "countries/gb.json" },
-  { "code": "au", "name": "Australia",      "file": "countries/au.json" }
+  {"code": "de", "name": "Germany", "file": "countries/de.json", "imports": "imports/de.json"},
+  {"code": "at", "name": "Austria", "file": "countries/at.json", "imports": "imports/at.json"},
+  {"code": "be", "name": "Belgium", "file": "countries/be.json", "imports": "imports/be.json"},
+  {"code": "fr", "name": "France", "file": "countries/fr.json", "imports": "imports/fr.json"},
+  {"code": "gb", "name": "United Kingdom", "file": "countries/gb.json", "imports": "imports/gb.json"},
+  {"code": "ca-on", "name": "Canada (Ontario)", "file": "countries/ca-on.json"},
+  {"code": "au", "name": "Australia", "file": "countries/au.json"}
 ]
