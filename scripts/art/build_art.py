@@ -10,7 +10,8 @@ Inputs, fetched once and kept in --cache so repeat runs never touch the network:
   * scans             https://archive.org/download/usda-pomological-watercolor-collection/<id>.jpg
   * BiRefNet (MIT)    https://huggingface.co/onnx-community/BiRefNet-ONNX (onnx/model.onnx)
 
-Downloads run one at a time with a pause in between; please keep it that way.
+Downloads run one at a time with a pause in between; please keep it that way. The model's mask is
+saved next to each scan (<id>.mask.png), so later runs only redo the cheap steps.
 The model needs a few GB of memory; on a small machine run one plate at a time with --only.
 """
 import argparse
@@ -29,16 +30,17 @@ SIZE = 1024          # BiRefNet input
 MAX_SIDE = 640       # exported plate size (shown at up to 320 CSS px)
 THUMB_SIDE = 64      # row thumbnails, shown at up to 32 CSS px
 
-# Catalogue item -> NAL identifier. Picked by eye for a clear, typical specimen.
+# Catalogue item -> NAL identifier. Picked by eye for a clear, typical specimen that the painter's
+# ruled frame or the sheet edge doesn't cut off (a cut twig or stalk end is fine).
 PLATES = {
-    'apples': 'POM00002053', 'pears': 'POM00006915', 'plums': 'POM00004918', 'cherries': 'POM00000855',
+    'apples': 'POM00002053', 'pears': 'POM00006915', 'plums': 'POM00004918', 'cherries': 'POM00004671',
     'sour-cherries': 'POM00004432', 'peaches': 'POM00005228', 'grapes': 'POM00006020',
-    'strawberries': 'POM00004147', 'oranges': 'POM00000339', 'mandarins': 'POM00006387',
+    'strawberries': 'POM00004312', 'oranges': 'POM00000339', 'mandarins': 'POM00006387',
     'lemons': 'POM00006422', 'persimmons': 'POM00001225', 'mangoes': 'POM00004494',
-    'avocados': 'POM00004572', 'currants': 'POM00007155', 'gooseberries': 'POM00007152',
-    'raspberries': 'POM00000866', 'blackberries': 'POM00007219', 'blueberries': 'POM00006846',
-    'cranberries': 'POM00007174', 'melons': 'POM00007427', 'watermelons': 'POM00007419',
-    'figs': 'POM00007441', 'quinces': 'POM00001291', 'pomegranates': 'POM00007501', 'kiwis': 'POM00007367',
+    'avocados': 'POM00004572', 'currants': 'POM00007150', 'gooseberries': 'POM00007152',
+    'raspberries': 'POM00000866', 'blackberries': 'POM00007351', 'blueberries': 'POM00006846',
+    'cranberries': 'POM00007174', 'melons': 'POM00007426', 'watermelons': 'POM00007419',
+    'figs': 'POM00007441', 'quinces': 'POM00001288', 'pomegranates': 'POM00007501', 'kiwis': 'POM00007367',
     'feijoas': 'POM00007438', 'passionfruit': 'POM00007354', 'bananas': 'POM00000787',
     'chestnuts': 'POM00000125', 'hazelnuts': 'POM00007423', 'walnuts': 'POM00007473',
     'aubergines': 'POM00007167',
@@ -93,10 +95,27 @@ def keep_main(alpha):
     return alpha * grown
 
 
-def cutout(session, src):
+def soften(x, r):
+    """A box blur run three times (close to a Gaussian), for float arrays."""
+    for _ in range(3):
+        for axis in (0, 1):
+            pad = [(r + 1, r) if i == axis else (0, 0) for i in range(x.ndim)]
+            c = np.cumsum(np.pad(x, pad, mode='edge'), axis=axis)
+            n = x.shape[axis]
+            x = (np.take(c, np.arange(2 * r + 1, n + 2 * r + 1), axis=axis) - np.take(c, np.arange(n), axis=axis)) / (2 * r + 1)
+    return x
+
+
+def cutout(src, session):
+    """`session` is a function returning the model, so cached masks never load it."""
     im = Image.open(src).convert('RGB')
     im.thumbnail((2000, 2000), Image.LANCZOS)
-    a = mask(session, im)
+    cached = src.with_name(src.stem + '.mask.png')
+    if cached.exists() and Image.open(cached).size == im.size:
+        a = np.asarray(Image.open(cached), dtype=np.float32) / 255
+    else:
+        a = mask(session(), im)
+        Image.fromarray((a * 255).round().astype(np.uint8)).save(cached)
     rgb = np.asarray(im, dtype=np.float32)
     # Paper colour: median of what the model calls background.
     paper = np.median(rgb[a < 0.05], axis=0)
@@ -104,12 +123,17 @@ def cutout(session, src):
     small.thumbnail((700, 700))
     a_small = keep_main(np.asarray(small, dtype=np.float32) / 255)
     a = np.minimum(a, np.asarray(Image.fromarray((a_small > 0.01).astype(np.uint8) * 255).resize(im.size), dtype=np.float32) / 255)
-    # Un-mix the paper from half-transparent edge pixels so no cream halo is left.
-    soft = (a > 0.02) & (a < 0.98)
-    aa = a[soft][:, None]
-    rgb[soft] = np.clip((rgb[soft] - (1 - aa) * paper) / aa, 0, 255)
+    # Soft edges: where the mask is confident, un-mix the paper so no cream halo is left; fainter
+    # pixels take the colour of the paint beside them, so paper and cast shadows can't turn into grey ghosts.
+    solid = (a > 0.9).astype(np.float32)
+    weight = soften(solid, 6)
+    beside = soften(rgb * solid[..., None], 6) / np.maximum(weight, 1e-4)[..., None]
+    beside = np.where((weight > 1e-3)[..., None], beside, rgb)
+    unmixed = np.clip((rgb - (1 - a)[..., None] * paper) / np.maximum(a, 1e-3)[..., None], 0, 255)
+    trust = np.clip((a - 0.25) / 0.5, 0, 1)[..., None]
+    rgb = np.where((a < 0.98)[..., None], trust * unmixed + (1 - trust) * beside, rgb)
     a[a < 0.02] = 0
-    out = Image.fromarray(np.dstack([rgb, a * 255]).astype(np.uint8), 'RGBA')
+    out = Image.fromarray(np.dstack([np.clip(rgb, 0, 255), a * 255]).astype(np.uint8), 'RGBA')
     box = out.getchannel('A').point(lambda v: 255 if v > 8 else 0).getbbox()
     pad = 12
     out = out.crop((max(0, box[0] - pad), max(0, box[1] - pad), min(out.width, box[2] + pad), min(out.height, box[3] + pad)))
@@ -158,11 +182,17 @@ def main():
     if not (args.model and args.metadata and args.cache):
         ap.error('--model, --metadata and --cache are needed to cut out plates')
 
-    import onnxruntime
-    opts = onnxruntime.SessionOptions()
-    opts.enable_cpu_mem_arena = False  # the 1024² model otherwise holds on to several GB between images
-    opts.enable_mem_pattern = False
-    session = onnxruntime.InferenceSession(args.model, opts, providers=['CPUExecutionProvider'])
+    model = {}
+
+    def session():
+        if 'session' not in model:  # loaded on first use: cached masks don't need it
+            import onnxruntime
+            opts = onnxruntime.SessionOptions()
+            opts.enable_cpu_mem_arena = False  # the 1024² model otherwise holds on to several GB between images
+            opts.enable_mem_pattern = False
+            model['session'] = onnxruntime.InferenceSession(args.model, opts, providers=['CPUExecutionProvider'])
+        return model['session']
+
     meta = {r['id']: r for r in csv.DictReader(open(args.metadata, encoding='utf-8'))}
     cache = pathlib.Path(args.cache)
     cache.mkdir(parents=True, exist_ok=True)
@@ -173,7 +203,7 @@ def main():
         if args.only and item not in args.only:
             continue
         scan = fetch(f'https://archive.org/download/usda-pomological-watercolor-collection/{pid}.jpg', cache / f'{pid}.jpg')
-        img = cutout(session, scan)
+        img = cutout(scan, session)
         img.save(OUT / f'{item}.webp', 'WEBP', quality=80, method=6)
         r = meta[pid]
         name, dates = artist(r['artist'].split(' , ')[0])
